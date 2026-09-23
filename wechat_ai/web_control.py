@@ -110,7 +110,7 @@ class Controller:
                 "api_key_env": config.api_key_env,
                 "is_local_model": config.is_local_model,
                 "model_status": _local_model_status(config),
-                "focus_warning": "发送时微信可能短暂获得焦点；程序不移动鼠标，且会等电脑空闲 10 秒。",
+                "focus_warning": "发送时微信可能短暂获得焦点；程序不移动鼠标。",
             }
 
     def save_model(self, payload: dict) -> dict:
