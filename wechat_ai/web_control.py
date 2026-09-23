@@ -91,6 +91,15 @@ def _bot_start_error() -> str:
     return "请查看 data/bot.stderr.log"
 
 
+def _require_visible_wechat(groups: tuple[str, ...]) -> None:
+    from .ui_diagnostics import _visible_window_rect, _wechat_pids
+
+    try:
+        _visible_window_rect(_wechat_pids())
+    except RuntimeError as exc:
+        raise ValueError("微信已缩到托盘或未打开；请恢复微信窗口并打开 " + "、".join(groups) + " 群。窗口可以放在其他程序后面。") from exc
+
+
 class Controller:
     def __init__(self):
         self.lock = threading.RLock()
@@ -145,6 +154,7 @@ class Controller:
             if _process():
                 return self.status()
             config = Config.load(CONFIG_PATH)
+            _require_visible_wechat(config.groups)
             if not config.is_local_model and not os.environ.get(config.api_key_env):
                 raise ValueError(f"缺少环境变量 {config.api_key_env}；请在启动控制页前设置")
             if config.is_local_model:

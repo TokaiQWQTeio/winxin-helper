@@ -68,6 +68,13 @@ class ControlPageTests(TestCase):
             controller.start({"accept_focus": False})
         self.assertFalse(web_control.Config.load(self.config_path).auto_send_enabled)
 
+    def test_hidden_wechat_prevents_start(self):
+        controller = web_control.Controller()
+        with patch.object(web_control, "_require_visible_wechat", side_effect=ValueError("微信已缩到托盘")):
+            with self.assertRaisesRegex(ValueError, "缩到托盘"):
+                controller.start({"accept_focus": True})
+        self.assertFalse(web_control.Config.load(self.config_path).auto_send_enabled)
+
     def test_start_and_stop_update_flags_and_supervise_bot(self):
         controller = web_control.Controller()
         controller.save_model({
@@ -77,6 +84,7 @@ class ControlPageTests(TestCase):
         process = MagicMock()
         process.pid = 12345
         with patch.object(web_control, "_process", side_effect=[None, process, process]), \
+             patch.object(web_control, "_require_visible_wechat"), \
              patch.object(web_control.subprocess, "run", return_value=MagicMock(returncode=0)) as launch, \
              patch.dict(web_control.os.environ, {"MY_MODEL_KEY": "test-key"}):
             result = controller.start({"accept_focus": True})
