@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="control-token" content="__CONTROL_TOKEN__">
+  <title>hi～ 助手控制台</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="top">
+      <div class="brand"><span class="mark">hi～</span><span>微信 AI 助手</span></div>
+      <span class="local">仅在本机开放 · 127.0.0.1</span>
+    </header>
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow">控制台 / DASHBOARD</p>
+        <h1>让回复，掌握在你手里。</h1>
+        <p class="lede">管理 <strong id="bot-name">hi～</strong> 的群聊助手，随时启动或停止，并选择回答所用的模型。</p>
+      </div>
+      <div class="orb" aria-hidden="true"><span>hi～</span></div>
+    </section>
+
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+    <div class="grid">
+      <section class="card status-card" aria-labelledby="status-title">
+        <div class="card-head"><div><p class="eyebrow">01 / 运行状态</p><h2 id="status-title">助手控制</h2></div><span id="status-pill" class="pill">读取中</span></div>
+        <div class="state-block"><span class="state-dot" id="state-dot"></span><div><strong id="state-text">正在读取状态</strong><p id="state-sub">请稍候</p></div></div>
+        <div class="meta"><div><span>微信账号</span><strong id="account">—</strong></div><div><span>回复群聊</span><strong id="groups">—</strong></div></div>
+        <div class="caution"><span class="caution-icon">!</span><p>发送不会移动鼠标，但微信可能短暂抢到焦点。助手只在电脑连续空闲约 10 秒后尝试回复；多人群仍待实际验证。</p></div>
+        <label class="check"><input id="accept-focus" type="checkbox"><span>我了解启动后，收到真正 @ 时可能自动发送并短暂切换焦点</span></label>
+        <div class="actions"><button id="start-btn" class="primary" type="button">启动助手 <span>↗</span></button><button id="stop-btn" class="secondary" type="button">停止助手</button></div>
+      </section>
+
+      <section class="card model-card" aria-labelledby="model-title">
+        <div class="card-head"><div><p class="eyebrow">02 / 模型设置</p><h2 id="model-title">回答由谁生成？</h2></div><span class="model-spark">✳</span></div>
+        <div class="choices" role="radiogroup" aria-label="选择模型来源">
+          <label class="choice"><input type="radio" name="provider" value="local" checked><span class="choice-icon">⌁</span><span class="choice-copy"><strong>本地 DeepSeek R1</strong><small>已下载 · deepseek-r1:8b · Ollama</small></span><span class="radio-mark"></span></label>
+          <label class="choice"><input type="radio" name="provider" value="api"><span class="choice-icon">↗</span><span class="choice-copy"><strong>自定义 API</strong><small>支持兼容 OpenAI 聊天接口的 HTTPS 服务</small></span><span class="radio-mark"></span></label>
+        </div>
+        <div id="api-fields" class="api-fields" hidden>
+          <label>API 地址<input id="api-url" type="url" spellcheck="false" placeholder="https://example.com/v1"></label>
+          <label>模型名称<input id="api-model" type="text" spellcheck="false" placeholder="model-name"></label>
+          <label>密钥环境变量名<input id="api-env" type="text" spellcheck="false" value="WECHAT_AI_API_KEY"></label>
+          <p>密钥只从启动控制页的电脑环境变量读取，网页不会保存密钥。</p>
+        </div>
+        <div class="model-footer"><span id="model-status">正在读取模型状态…</span><button id="save-model" class="save-btn" type="button">保存模型设置</button></div>
+      </section>
+    </div>
+    <footer>hi～ CONTROL · 仅控制当前电脑上的测试群助手</footer>
+  </main>
+</body>
+</html>
