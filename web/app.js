@@ -26,14 +26,16 @@ function render(status, updateForm = false) {
   $('bot-name').textContent = status.bot_name;
   $('account').textContent = status.bot_name;
   $('groups').textContent = status.groups.join('、');
-  const ready = status.running && status.wechat_window_visible;
-  $('status-pill').textContent = status.running ? (ready ? '运行中' : '微信已隐藏') : '已停止';
+  const ready = status.running && status.target_group_readable;
+  $('status-pill').textContent = status.running ? (ready ? '正在监听' : (status.wechat_window_visible ? '无法核实 @' : '微信已隐藏')) : '已停止';
   $('status-pill').classList.toggle('running', ready);
   $('state-dot').classList.toggle('running', ready);
-  $('state-text').textContent = status.running ? (ready ? '助手正在监听' : '微信窗口不可读取') : '助手目前未运行';
-  $('state-sub').textContent = status.wechat_window_visible
-    ? (status.running ? `进程 PID ${status.pid} · 只处理真实 @` : '启动由你手动控制')
-    : '请从托盘恢复微信，并打开回复群聊';
+  $('state-text').textContent = status.running ? (ready ? '助手正在监听' : '助手已暂停监听') : '助手目前未运行';
+  $('state-sub').textContent = !status.wechat_window_visible
+    ? '请从托盘恢复微信，并打开回复群聊'
+    : status.running && !ready
+      ? `请在微信主窗口打开 ${status.groups.join('、')} 群并显示左侧会话列表；恢复后只处理新消息`
+      : status.running ? `进程 PID ${status.pid} · 只处理真实 @` : '启动由你手动控制';
   $('model-status').textContent = status.model_status;
   $('start-btn').disabled = status.running;
   $('stop-btn').disabled = !status.running;

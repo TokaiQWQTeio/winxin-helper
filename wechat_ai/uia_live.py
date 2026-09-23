@@ -61,12 +61,14 @@ def run(config: Config, interval: float = 2.0, one_shot: bool = False) -> None:
                 try:
                     current = read_group(group)
                 except RuntimeError:
-                    LOG.warning("群窗口不可读取，恢复后将重新建立基线：%s", group)
+                    if group in previous:
+                        LOG.warning("群窗口不可读取，恢复后将重新建立基线：%s", group)
                     previous.pop(group, None)
                     continue
                 earlier = previous.get(group)
                 previous[group] = current
                 if earlier is None or earlier.hwnd != current.hwnd:
+                    LOG.info("群窗口已恢复，重新建立消息基线：%s", group)
                     continue
                 for item in new_items(earlier.items, current.items):
                     if item.kind != "mmui::ChatTextItemView" or not item.text.strip():
@@ -74,8 +76,10 @@ def run(config: Config, interval: float = 2.0, one_shot: bool = False) -> None:
                     is_candidate = has_mention_marker(item.text, config.bot_name)
                     sender = (
                         sender_from_session_preview(current, item, config.bot_name)
-                        if is_candidate else identify_sender(current, item)
+                        if is_candidate else None
                     )
+                    if sender is None:
+                        sender = identify_sender(current, item)
                     if sender is None:
                         LOG.warning("发送者无法确认，跳过：%s", group)
                         continue

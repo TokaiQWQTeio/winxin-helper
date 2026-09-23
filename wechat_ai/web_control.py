@@ -108,6 +108,15 @@ def _wechat_window_visible() -> bool:
         return False
 
 
+def _target_group_readable(groups: tuple[str, ...]) -> bool:
+    """Require the group messages and session preview used to verify real @."""
+    try:
+        from .uia_preview import read_group
+        return all(bool(read_group(group).session_preview) for group in groups)
+    except Exception:
+        return False
+
+
 class Controller:
     def __init__(self):
         self.lock = threading.RLock()
@@ -117,9 +126,11 @@ class Controller:
         with self.lock:
             config = Config.load(CONFIG_PATH)
             process = _process()
+            visible = _wechat_window_visible()
             return {
                 "running": process is not None,
-                "wechat_window_visible": _wechat_window_visible(),
+                "wechat_window_visible": visible,
+                "target_group_readable": bool(process and visible and _target_group_readable(config.groups)),
                 "pid": process.pid if process else None,
                 "bot_name": config.bot_name,
                 "groups": list(config.groups),
@@ -164,6 +175,8 @@ class Controller:
                 return self.status()
             config = Config.load(CONFIG_PATH)
             _require_visible_wechat(config.groups)
+            if not _target_group_readable(config.groups):
+                raise ValueError("请在微信主窗口打开 " + "、".join(config.groups) + " 群，并保持左侧会话列表可见；当前无法核实真正的 @")
             if not config.is_local_model and not os.environ.get(config.api_key_env):
                 raise ValueError(f"缺少环境变量 {config.api_key_env}；请在启动控制页前设置")
             if config.is_local_model:

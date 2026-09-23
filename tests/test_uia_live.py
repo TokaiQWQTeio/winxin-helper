@@ -31,8 +31,11 @@ class LiveOneShotTests(TestCase):
                             focus_send_enabled=True)
             with patch("wechat_ai.uia_live.read_group", side_effect=[before, after]), \
                  patch("wechat_ai.uia_live.time.sleep"), \
+                 patch("wechat_ai.uia_live.sender_from_session_preview", return_value=None), \
+                 patch("wechat_ai.uia_live.identify_sender", return_value="张三") as identify, \
                  patch("wechat_ai.uia_live.ChatModel", return_value=model), \
                  patch("wechat_ai.uia_live.UIASender", return_value=sender):
                 run(config, one_shot=True)
+        identify.assert_called_once_with(after, mention)
         sender.send.assert_called_once_with("text", "张三", "你好！")
         self.assertFalse(config.auto_send_enabled)
