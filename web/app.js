@@ -25,17 +25,19 @@ function render(status, updateForm = false) {
   current = status;
   $('bot-name').textContent = status.bot_name;
   $('account').textContent = status.bot_name;
-  $('groups').textContent = status.groups.join('、');
-  const ready = status.running && status.target_group_readable;
-  $('status-pill').textContent = status.running ? (ready ? '正在监听' : (status.wechat_window_visible ? '目标群未打开' : '微信已隐藏')) : '已停止';
+  $('groups').textContent = status.enabled_groups.join('、') || '无';
+  renderGroups(status);
+  const multi = status.enabled_groups.length > 1;
+  const ready = status.running && (multi ? status.wechat_window_visible : status.target_group_readable);
+  $('status-pill').textContent = status.running ? (ready ? (multi ? '轮询进程运行中' : '正在监听') : (status.wechat_window_visible ? '目标群未打开' : '微信已隐藏')) : '已停止';
   $('status-pill').classList.toggle('running', ready);
   $('state-dot').classList.toggle('running', ready);
-  $('state-text').textContent = status.running ? (ready ? '助手正在监听' : '助手已暂停监听') : '助手目前未运行';
+  $('state-text').textContent = status.running ? (ready ? (multi ? '助手正在尝试逐群扫描' : '助手正在监听') : '助手已暂停监听') : '助手目前未运行';
   $('state-sub').textContent = !status.wechat_window_visible
     ? '请从托盘恢复微信，并打开回复群聊'
     : status.running && !ready
-      ? `请在微信打开 ${status.groups.join('、')} 群；恢复后只处理新消息`
-      : status.running ? `进程 PID ${status.pid} · 只处理真实 @` : '启动由你手动控制';
+      ? `请在微信打开 ${status.enabled_groups.join('、')} 群；恢复后只处理新消息`
+      : status.running ? `进程 PID ${status.pid} · 只处理真实 @${multi ? ' · 群读取失败时会跳过' : ''}` : '启动由你手动控制';
   $('model-status').textContent = status.model_status;
   $('start-btn').disabled = status.running;
   $('stop-btn').disabled = !status.running;
@@ -47,6 +49,28 @@ function render(status, updateForm = false) {
     $('api-env').value = status.api_key_env;
     updateProvider();
   }
+}
+
+function renderGroups(status) {
+  const list = $('group-list');
+  list.replaceChildren();
+  for (const name of status.groups) {
+    const row = document.createElement('div');
+    row.className = 'group-row';
+    const label = document.createElement('span');
+    label.textContent = name;
+    const button = document.createElement('button');
+    const enabled = status.enabled_groups.includes(name);
+    button.type = 'button';
+    button.textContent = enabled ? '已启用 · 点击关闭' : '已关闭 · 点击启用';
+    button.className = enabled ? 'group-enabled' : 'group-disabled';
+    button.disabled = status.running;
+    button.addEventListener('click', () => action('/api/groups/enable', {name, enabled: !enabled}, '群设置已保存。'));
+    row.append(label, button);
+    list.append(row);
+  }
+  $('group-name').disabled = status.running;
+  $('add-group-form').querySelector('button').disabled = status.running;
 }
 
 function updateProvider() {
@@ -78,6 +102,13 @@ $('save-model').addEventListener('click', () => {
     provider, api_base_url: $('api-url').value.trim(), model: $('api-model').value.trim(), api_key_env: $('api-env').value.trim(),
   };
   action('/api/model', payload, '模型设置已保存。');
+});
+$('add-group-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const name = $('group-name').value.trim();
+  if (!name) return;
+  action('/api/groups/add', {name}, '群已添加，默认关闭。');
+  $('group-name').value = '';
 });
 request('/api/status').then(status => render(status, true)).catch(error => notify(error.message, true));
 setInterval(() => request('/api/status').then(status => render(status)).catch(() => {}), 10000);

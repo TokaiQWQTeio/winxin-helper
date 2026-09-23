@@ -1,11 +1,31 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
+from wechat_ai import uia_preview
 from wechat_ai.uia_preview import Item, Snapshot, has_mention_marker, has_verified_mention, new_items, sender_from_session_preview
 
 
 class PreviewTests(unittest.TestCase):
+    def test_switch_requires_unique_session_and_verified_title(self):
+        cell = MagicMock()
+        cell.ClassName = "mmui::ChatSessionCell"
+        cell.Name = "甲群\n张三: 你好"
+        window = SimpleNamespace(ProcessId=123)
+        uia = SimpleNamespace(SetGlobalSearchTimeout=lambda _: None,
+                              GetRootControl=lambda: SimpleNamespace(GetChildren=lambda: [window]))
+        snapshot = Snapshot(1, (0, 0), ())
+        with patch.dict("sys.modules", {"uiautomation": uia}), \
+             patch.object(uia_preview, "_wechat_pids", return_value={123}), \
+             patch.object(uia_preview, "_walk", return_value=[cell]), \
+             patch.object(uia_preview, "read_group", return_value=snapshot) as read:
+            self.assertEqual(uia_preview.select_group("甲群"), snapshot)
+            read.assert_called_with("甲群")
+            with self.assertRaisesRegex(RuntimeError, "唯一定位"):
+                uia_preview.select_group("乙群")
+
     def test_overlap_detects_repeated_new_message(self):
         a = Item("text", "一样")
         b = Item("text", "另一条")

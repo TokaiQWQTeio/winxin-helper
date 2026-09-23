@@ -40,7 +40,7 @@ class AssistantTests(unittest.TestCase):
         self.config = Config(
             bot_name="小助手", groups=("甲群", "乙群"),
             api_base_url="https://example.com/v1", model="test",
-            auto_send_enabled=True, summary_batch_size=2,
+            auto_send_enabled=True, summary_batch_size=2, raw_retention_days=7,
         )
         self.model = FakeModel()
         self.sender = FakeSender()
@@ -72,6 +72,38 @@ class AssistantTests(unittest.TestCase):
         self.assertNotIn("甲群秘密", self.model.calls[-1][1])
         self.assertEqual(self.bot.ingest(self.event(group="丙群", source_id="3")), "group_not_allowed")
         self.assertEqual(self.bot.ingest(self.event(source_id="4", is_self=True)), "self_message")
+
+    def test_disabled_group_never_replies(self):
+        config = replace(self.config, enabled_groups=("甲群",))
+        bot = Assistant(config, self.store, self.model, self.sender)
+        self.assertEqual(bot.ingest(self.event(group="乙群")), "group_not_allowed")
+        self.assertEqual(self.sender.calls, [])
+
+    def test_history_is_resumable_and_never_sends_old_mentions(self):
+        self.store.request_history("甲群")
+        self.assertEqual(self.store.history_state("甲群")["status"], "paused")
+        self.store.set_history_status("甲群", "running")
+        old_mention = self.event(source_id="history-1", received_at=utcnow()-timedelta(days=1))
+        self.assertEqual(self.store.record_history_batch("甲群", [old_mention]), 1)
+        self.assertEqual(self.store.record_history_batch("甲群", [old_mention]), 0)
+        self.store.set_history_status("甲群", "paused")
+        self.store.set_history_status("甲群", "running")
+        self.store.record_history_batch("甲群", [], complete=True, gap_note="更早的消息未加载")
+        state = self.store.history_state("甲群")
+        self.assertEqual(state["status"], "complete")
+        self.assertEqual(state["scanned_count"], 1)
+        self.assertTrue(state["oldest_visible"])
+        self.assertEqual(state["gap_note"], "更早的消息未加载")
+        self.assertEqual(self.store.conn.execute("SELECT COUNT(*) FROM deliveries").fetchone()[0], 0)
+
+    def test_relevant_history_never_crosses_groups(self):
+        old = utcnow() - timedelta(days=2)
+        self.store.save_message(self.event(group="甲群", source_id="older-a", text="周五在图书馆见", received_at=old))
+        self.store.save_message(self.event(group="乙群", source_id="older-b", text="周五在咖啡馆见", received_at=old))
+        for index in range(51):
+            self.store.save_message(self.event(group="甲群", source_id=f"new-{index}", text="别的话题"))
+        found = self.store.relevant_history("甲群", "周五在哪见")
+        self.assertEqual([row["body"] for row in found], ["周五在图书馆见"])
 
     def test_group_count_and_sent_reply_are_in_context(self):
         self.bot.ingest(self.event(source_id="context", text="青山之东: 大家好", mention_verified=False))

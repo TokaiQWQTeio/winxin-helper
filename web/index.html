@@ -51,7 +51,13 @@
         <div class="model-footer"><span id="model-status">正在读取模型状态…</span><button id="save-model" class="save-btn" type="button">保存模型设置</button></div>
       </section>
     </div>
-    <footer>hi～ CONTROL · 仅控制当前电脑上的测试群助手</footer>
+    <section class="card group-card" aria-labelledby="group-title">
+      <div class="card-head"><div><p class="eyebrow">03 / 群聊范围</p><h2 id="group-title">逐群启用</h2></div></div>
+      <p class="group-help">新群默认关闭。修改群开关前请先停止助手；多个群的同时采集需在独立微信环境完成验证。</p>
+      <div id="group-list" class="group-list" aria-live="polite"></div>
+      <form id="add-group-form" class="group-add"><label for="group-name">添加群名</label><input id="group-name" maxlength="100" placeholder="微信中的群聊名称" required><button type="submit" class="save-btn">添加（默认关闭）</button></form>
+    </section>
+    <footer>hi～ CONTROL · 群聊仅在明确启用后回复</footer>
   </main>
 </body>
 </html>

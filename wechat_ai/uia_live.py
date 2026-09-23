@@ -13,7 +13,7 @@ from .llm import ChatModel
 from .models import GroupMessage
 from .service import Assistant
 from .store import Store
-from .uia_preview import has_mention_marker, has_verified_mention, identify_sender, new_items, read_group, sender_from_session_preview
+from .uia_preview import has_mention_marker, has_verified_mention, identify_sender, new_items, read_group, select_group, sender_from_session_preview
 from .uia_sender import UIASender
 
 
@@ -25,8 +25,12 @@ def run(config: Config, interval: float = 2.0, one_shot: bool = False) -> None:
         raise RuntimeError("自动发送未启用；先用 watch-preview 完成群聊验证")
     if not config.focus_send_enabled:
         raise RuntimeError("发送可能短暂切换焦点；须在本机控制页明确启用")
-    if one_shot and len(config.groups) != 1:
+    if one_shot and len(config.active_groups) != 1:
         raise RuntimeError("单次发送测试只能配置一个群")
+    if not config.active_groups:
+        raise RuntimeError("没有已启用的群")
+    if len(config.active_groups) > 1 and not config.dedicated_vm:
+        raise RuntimeError("多群轮询尚未在独立虚拟机验证；禁止直接进入发送模式")
     if config.api_base_url == "https://api.example.com/v1" or config.model == "your-model-name":
         raise RuntimeError("模型地址和名称仍是示例值")
     if not config.is_local_model and not os.environ.get(config.api_key_env):
@@ -34,8 +38,13 @@ def run(config: Config, interval: float = 2.0, one_shot: bool = False) -> None:
 
     # No old UI messages are replayed when the process starts or reconnects.
     previous = {}
-    for group in config.groups:
-        previous[group] = read_group(group)
+    for group in config.active_groups:
+        try:
+            if len(config.active_groups) > 1:
+                select_group(group)
+            previous[group] = read_group(group)
+        except RuntimeError:
+            LOG.warning("无法建立初始基线，稍后重试：%s", group)
     session_id = uuid4().hex
     sequence = 0
     store = Store(config.database_path)
@@ -43,9 +52,9 @@ def run(config: Config, interval: float = 2.0, one_shot: bool = False) -> None:
     assistant = Assistant(active_config, store, ChatModel(config), UIASender(allow_focus=True))
     next_maintenance = time.monotonic() + 24 * 60 * 60
     if one_shot:
-        LOG.info("单次自动回复测试已启动：等待 %s 群下一条真正 @ %s", config.groups[0], config.bot_name)
+        LOG.info("单次自动回复测试已启动：等待 %s 群下一条真正 @ %s", config.active_groups[0], config.bot_name)
     else:
-        LOG.info("实时监听已启动：%s", ", ".join(config.groups))
+        LOG.info("实时监听已启动：%s", ", ".join(config.active_groups))
     try:
         while True:
             time.sleep(interval)
@@ -57,8 +66,10 @@ def run(config: Config, interval: float = 2.0, one_shot: bool = False) -> None:
                     LOG.exception("每日清理失败")
                 finally:
                     next_maintenance = time.monotonic() + 24 * 60 * 60
-            for group in config.groups:
+            for group in config.active_groups:
                 try:
+                    if len(config.active_groups) > 1:
+                        select_group(group)
                     current = read_group(group)
                 except RuntimeError:
                     if group in previous:

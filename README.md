@@ -1,6 +1,10 @@
 # 个人微信群 AI 助手
 
-这个仓库包含消息处理、分群上下文、长期摘要、7 天原文清理、本机 DeepSeek 模型，以及基于 Windows 辅助功能的微信接入。**后台机器人默认停止，`config.json` 的自动发送为 `false`。新的发送方式不移动鼠标，但微信可能短暂获得焦点；多人群仍待实测。**
+## 2026-09-23 扩展进度
+
+控制页已支持逐群登记与开关；新群默认关闭。只有 `text` 单群的现有接入经过验证，多群发送仍由程序主动拦截。历史任务的本机存储可记录暂停、续扫、实际日期范围和缺口，旧 @ 不会进入发送队列；微信界面回看尚待虚拟机实测。服务器中继代码只处理在线状态与控制指令，尚未部署；详情见 [虚拟机与服务器部署记录](docs/vm-server-deployment.md)。助手当前保持停止。
+
+这个仓库包含消息处理、分群上下文、长期摘要、30 天原文清理、本机 DeepSeek 模型，以及基于 Windows 辅助功能的微信接入。**后台机器人默认停止，`config.json` 的自动发送为 `false`。新的发送方式不移动鼠标，但微信可能短暂获得焦点；多人群仍待实测。**
 
 ## 本机控制网页
 
@@ -48,7 +52,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-local-model.ps
 
 - `python -m wechat_ai probe`：只读检查微信进程、版本和接入认证状态。
 - `python -m wechat_ai --config config.json simulate events.jsonl`：用模拟事件演练白名单、去重和回复逻辑。使用预览模型及预览发送器，既不访问模型 API，也不发送微信消息，不写入正式数据库。
-- `python -m wechat_ai --config config.json maintenance`：先更新群摘要，再删除超过 7 天的原文；后台持续监听时每 24 小时自动执行一次。
+- `python -m wechat_ai --config config.json maintenance`：先更新群摘要，再删除超过 30 天的原文；后台持续监听时每 24 小时自动执行一次。
 - `python -m wechat_ai --config config.json clear-summary "群名"`：清除指定群的长期摘要。
 - `python -m wechat_ai capture-ui`：对**当前可见的微信窗口**截图并离线 OCR，结果写入 `data/diagnostics`。它可能包含屏幕上的聊天内容；只应在助手账号登录并打开测试群后使用。需先安装 `pip install -r requirements-ui.txt`。
 - `python -m wechat_ai probe-uia`：只读查询微信暴露给 Windows 辅助功能接口的控件。即使微信在后台也可尝试；结果可能包含可见聊天内容，同样保存在 `data/diagnostics`。
