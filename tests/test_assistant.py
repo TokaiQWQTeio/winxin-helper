@@ -56,6 +56,7 @@ class AssistantTests(unittest.TestCase):
             received_at=kwargs.get("received_at", utcnow()),
             is_self=kwargs.get("is_self", False),
             mention_verified=kwargs.get("mention_verified", True),
+            group_member_count=kwargs.get("group_member_count"),
         )
 
     def test_verified_mention_only_and_deduplication(self):
@@ -71,6 +72,17 @@ class AssistantTests(unittest.TestCase):
         self.assertNotIn("甲群秘密", self.model.calls[-1][1])
         self.assertEqual(self.bot.ingest(self.event(group="丙群", source_id="3")), "group_not_allowed")
         self.assertEqual(self.bot.ingest(self.event(source_id="4", is_self=True)), "self_message")
+
+    def test_group_count_and_sent_reply_are_in_context(self):
+        self.bot.ingest(self.event(source_id="context", text="青山之东: 大家好", mention_verified=False))
+        self.assertEqual(self.bot.ingest(self.event(
+            source_id="question", text="@小助手 群里有几个人", group_member_count=3,
+        )), "sent")
+        prompt = self.model.calls[-1][1]
+        self.assertIn("当前群成员总数（微信标题栏）：3", prompt)
+        self.assertIn("青山之东: 大家好", prompt)
+        self.assertEqual(self.bot.ingest(self.event(source_id="followup", text="@小助手 刚才说了什么")), "sent")
+        self.assertIn("小助手: 收到，我来回答。", self.model.calls[-1][1])
 
     def test_disabled_and_api_failure_do_not_send(self):
         disabled = Assistant(replace(self.config, auto_send_enabled=False), self.store, self.model, self.sender)

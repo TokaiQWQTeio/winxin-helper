@@ -96,6 +96,7 @@ def run(config: Config, interval: float = 2.0, one_shot: bool = False) -> None:
                             current, item, config.bot_name, sender,
                             visual_sender_confirmed=visual_sender_confirmed,
                         ),
+                        group_member_count=current.member_count,
                     )
                     result = assistant.ingest(event)
                     LOG.info("消息处理结果：%s %s", group, result)

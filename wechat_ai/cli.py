@@ -151,6 +151,7 @@ def main(argv: list[str] | None = None) -> int:
                     received_at=datetime.fromisoformat(raw["received_at"]),
                     is_self=raw.get("is_self", False),
                     mention_verified=raw.get("mention_verified", False),
+                    group_member_count=raw.get("group_member_count"),
                 )
                 print(f"第 {line_no} 行：{assistant.ingest(event)}")
         finally:

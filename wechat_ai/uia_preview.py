@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -32,6 +33,7 @@ class Snapshot:
     origin: tuple[int, int]
     items: tuple[Item, ...]
     session_preview: str = ""
+    member_count: int | None = None
 
 
 def new_items(previous: tuple[Item, ...], current: tuple[Item, ...]) -> tuple[Item, ...]:
@@ -145,6 +147,13 @@ def read_group(group: str) -> Snapshot:
                 for node in _walk(title_bar)
             ):
                 continue
+            counts = [
+                int(match.group(1))
+                for node in _walk(title_bar)
+                if _class(node) == "mmui::XTextView"
+                if (match := re.fullmatch(r"\((\d+)\)", _name(node)))
+            ]
+            member_count = counts[0] if len(counts) == 1 and counts[0] > 0 else None
             message_list = next((node for node in _walk(page) if _class(node) == "mmui::RecyclerListView" and _name(node) == "消息"), None)
             if message_list is None:
                 raise RuntimeError("已找到测试群，但消息列表不可读取")
@@ -160,7 +169,7 @@ def read_group(group: str) -> Snapshot:
                 if _class(node) == "mmui::ChatSessionCell"
                 and _name(node).splitlines()[:1] == [group]
             ), "")
-            return Snapshot(window.NativeWindowHandle, window_rect[:2], items, session_preview)
+            return Snapshot(window.NativeWindowHandle, window_rect[:2], items, session_preview, member_count)
     raise RuntimeError(f"没有找到已打开的测试群窗口：{group}")
 
 
