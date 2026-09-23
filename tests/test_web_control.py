@@ -14,6 +14,19 @@ from wechat_ai import web_control
 
 
 class ControlPageTests(TestCase):
+    def test_powershell_environment_has_one_path_key(self):
+        with patch.object(web_control.os, "environ", {"PATH": "first", "Path": "second", "OTHER": "yes"}):
+            environment = web_control._powershell_env()
+        self.assertEqual([key for key in environment if key.casefold() == "path"], ["Path"])
+        self.assertEqual(environment["Path"], "second")
+
+    def test_start_error_uses_utf8_bot_log(self):
+        with TemporaryDirectory() as directory:
+            log = Path(directory) / "bot.stderr.log"
+            log.write_text("__main__.py: error: 没有找到已打开的测试群窗口：text\n", encoding="utf-8")
+            with patch.object(web_control, "BOT_ERROR_LOG", log):
+                self.assertEqual(web_control._bot_start_error(), "没有找到已打开的测试群窗口：text")
+
     def setUp(self):
         self.directory = TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
@@ -64,9 +77,11 @@ class ControlPageTests(TestCase):
         process = MagicMock()
         process.pid = 12345
         with patch.object(web_control, "_process", side_effect=[None, process, process]), \
-             patch.object(web_control.subprocess, "run", return_value=MagicMock(returncode=0)), \
+             patch.object(web_control.subprocess, "run", return_value=MagicMock(returncode=0)) as launch, \
              patch.dict(web_control.os.environ, {"MY_MODEL_KEY": "test-key"}):
             result = controller.start({"accept_focus": True})
+        self.assertEqual(launch.call_args.kwargs["stdout"], web_control.subprocess.DEVNULL)
+        self.assertEqual(launch.call_args.kwargs["stderr"], web_control.subprocess.DEVNULL)
         self.assertTrue(result["running"])
         self.assertTrue(web_control.Config.load(self.config_path).auto_send_enabled)
         self.assertTrue(web_control.Config.load(self.config_path).focus_send_enabled)

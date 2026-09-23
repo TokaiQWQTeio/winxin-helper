@@ -21,6 +21,20 @@ ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "config.json"
 PID_PATH = ROOT / "data" / "bot.pid"
 STATIC = ROOT / "web"
+BOT_ERROR_LOG = ROOT / "data" / "bot.stderr.log"
+
+
+def _powershell_env() -> dict[str, str]:
+    # Windows PowerShell's Start-Process rejects an inherited PATH/Path pair.
+    # Keep one canonical spelling when the control page launches PowerShell.
+    environment = dict(os.environ)
+    path_keys = [key for key in environment if key.casefold() == "path"]
+    if path_keys:
+        path_value = environment[path_keys[-1]]
+        for key in path_keys:
+            del environment[key]
+        environment["Path"] = path_value
+    return environment
 
 
 def _process():
@@ -64,6 +78,17 @@ def _local_model_status(config: Config) -> str:
             return "Ollama 已运行" if response.status == 200 else "Ollama 未就绪"
     except (OSError, URLError):
         return "Ollama 未运行，启动助手时会尝试启动"
+
+
+def _bot_start_error() -> str:
+    try:
+        lines = BOT_ERROR_LOG.read_text(encoding="utf-8", errors="replace").splitlines()
+        for line in reversed(lines[-30:]):
+            if "__main__.py: error:" in line:
+                return line.split("error:", 1)[1].strip()
+    except OSError:
+        pass
+    return "请查看 data/bot.stderr.log"
 
 
 class Controller:
@@ -126,23 +151,23 @@ class Controller:
                 script = ROOT / "scripts" / "start-local-model.ps1"
                 result = subprocess.run(
                     ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script)],
-                    cwd=ROOT, capture_output=True, text=True, timeout=30,
-                    errors="replace",
+                    cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30,
+                    env=_powershell_env(),
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
                 if result.returncode:
-                    raise RuntimeError("本地模型启动失败：" + (result.stderr or result.stdout)[-400:])
+                    raise RuntimeError("本地模型启动失败；请检查 Ollama 是否正常运行")
             _save_config(replace(config, auto_send_enabled=True, focus_send_enabled=True))
             script = ROOT / "scripts" / "start-bot.ps1"
             try:
                 result = subprocess.run(
                     ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script)],
-                    cwd=ROOT, capture_output=True, text=True, timeout=45,
-                    errors="replace",
+                    cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=45,
+                    env=_powershell_env(),
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
                 if result.returncode or not _process():
-                    raise RuntimeError("助手启动失败：" + (result.stderr or result.stdout)[-400:])
+                    raise RuntimeError("助手启动失败：" + _bot_start_error())
             except Exception:
                 self.stop()
                 raise
