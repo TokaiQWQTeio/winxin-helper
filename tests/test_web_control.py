@@ -45,6 +45,9 @@ class ControlPageTests(TestCase):
         patcher = patch.object(web_control, "_local_model_status", return_value="Ollama 已运行")
         patcher.start()
         self.addCleanup(patcher.stop)
+        patcher = patch.object(web_control, "_wechat_window_visible", return_value=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_model_switch_preserves_disabled_state_and_rejects_http_api(self):
         controller = web_control.Controller()
@@ -116,6 +119,7 @@ class ControlPageTests(TestCase):
         with urlopen(url + "/api/status") as response:
             status = json.load(response)
         self.assertFalse(status["running"])
+        self.assertFalse(status["wechat_window_visible"])
         self.assertEqual(status["model"], "deepseek-r1:8b")
         with urlopen(url) as response:
             page = response.read().decode("utf-8")

@@ -26,11 +26,14 @@ function render(status, updateForm = false) {
   $('bot-name').textContent = status.bot_name;
   $('account').textContent = status.bot_name;
   $('groups').textContent = status.groups.join('、');
-  $('status-pill').textContent = status.running ? '运行中' : '已停止';
-  $('status-pill').classList.toggle('running', status.running);
-  $('state-dot').classList.toggle('running', status.running);
-  $('state-text').textContent = status.running ? '助手正在监听' : '助手目前未运行';
-  $('state-sub').textContent = status.running ? `进程 PID ${status.pid} · 只处理真实 @` : '启动由你手动控制';
+  const ready = status.running && status.wechat_window_visible;
+  $('status-pill').textContent = status.running ? (ready ? '运行中' : '微信已隐藏') : '已停止';
+  $('status-pill').classList.toggle('running', ready);
+  $('state-dot').classList.toggle('running', ready);
+  $('state-text').textContent = status.running ? (ready ? '助手正在监听' : '微信窗口不可读取') : '助手目前未运行';
+  $('state-sub').textContent = status.wechat_window_visible
+    ? (status.running ? `进程 PID ${status.pid} · 只处理真实 @` : '启动由你手动控制')
+    : '请从托盘恢复微信，并打开回复群聊';
   $('model-status').textContent = status.model_status;
   $('start-btn').disabled = status.running;
   $('stop-btn').disabled = !status.running;

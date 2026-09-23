@@ -92,12 +92,20 @@ def _bot_start_error() -> str:
 
 
 def _require_visible_wechat(groups: tuple[str, ...]) -> None:
+    if not _wechat_window_visible():
+        raise ValueError("微信已缩到托盘或未打开；请恢复微信窗口并打开 " + "、".join(groups) + " 群。窗口可以放在其他程序后面。")
+
+
+def _wechat_window_visible() -> bool:
+    if sys.platform != "win32":
+        return False
     from .ui_diagnostics import _visible_window_rect, _wechat_pids
 
     try:
         _visible_window_rect(_wechat_pids())
-    except RuntimeError as exc:
-        raise ValueError("微信已缩到托盘或未打开；请恢复微信窗口并打开 " + "、".join(groups) + " 群。窗口可以放在其他程序后面。") from exc
+        return True
+    except (RuntimeError, OSError, subprocess.TimeoutExpired):
+        return False
 
 
 class Controller:
@@ -111,6 +119,7 @@ class Controller:
             process = _process()
             return {
                 "running": process is not None,
+                "wechat_window_visible": _wechat_window_visible(),
                 "pid": process.pid if process else None,
                 "bot_name": config.bot_name,
                 "groups": list(config.groups),
