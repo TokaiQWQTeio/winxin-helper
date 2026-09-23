@@ -19,7 +19,7 @@ from .uia_preview import (
 def watch_model(config: Config, interval: float = 2.0) -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="backslashreplace")
-    group = config.active_groups[0]
+    group = config.groups[0]
     previous = read_group(group)
     model = ChatModel(config)
     print(f"问答预览已启动：{group}；请在群里真正 @ {config.bot_name} 提问。", flush=True)

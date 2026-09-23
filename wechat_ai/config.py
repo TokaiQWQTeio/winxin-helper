@@ -17,15 +17,8 @@ class Config:
     auto_send_enabled: bool = False
     focus_send_enabled: bool = False
     recent_message_limit: int = 50
-    raw_retention_days: int = 30
+    raw_retention_days: int = 7
     summary_batch_size: int = 20
-    enabled_groups: tuple[str, ...] | None = None
-    multi_group_verified: bool = False
-
-    @property
-    def active_groups(self) -> tuple[str, ...]:
-        # Legacy configs keep their existing groups enabled until explicitly edited.
-        return self.groups if self.enabled_groups is None else self.enabled_groups
 
     @property
     def is_local_model(self) -> bool:
@@ -47,11 +40,8 @@ class Config:
             auto_send_enabled=raw.get("auto_send_enabled", False),
             focus_send_enabled=raw.get("focus_send_enabled", False),
             recent_message_limit=raw.get("recent_message_limit", 50),
-            raw_retention_days=raw.get("raw_retention_days", 30),
+            raw_retention_days=raw.get("raw_retention_days", 7),
             summary_batch_size=raw.get("summary_batch_size", 20),
-            enabled_groups=(tuple(str(group).strip() for group in raw["enabled_groups"])
-                            if "enabled_groups" in raw else None),
-            multi_group_verified=raw.get("multi_group_verified", False),
         )
         config.validate()
         return config
@@ -61,13 +51,6 @@ class Config:
             raise ValueError("需要填写 bot_name 和至少一个群名")
         if len(set(self.groups)) != len(self.groups):
             raise ValueError("群名不能重复")
-        if len({group.casefold() for group in self.groups}) != len(self.groups):
-            raise ValueError("群名不能仅大小写不同")
-        if self.enabled_groups is not None and (
-            len(set(self.enabled_groups)) != len(self.enabled_groups)
-            or any(group not in self.groups for group in self.enabled_groups)
-        ):
-            raise ValueError("启用群必须是已添加的群，且不能重复")
         if not self.model or not self.api_key_env:
             raise ValueError("需要填写模型名称和 API 密钥环境变量名")
         parsed = urlparse(self.api_base_url)
@@ -77,8 +60,6 @@ class Config:
             raise ValueError("auto_send_enabled 必须为布尔值")
         if not isinstance(self.focus_send_enabled, bool):
             raise ValueError("focus_send_enabled 必须为布尔值")
-        if not isinstance(self.multi_group_verified, bool):
-            raise ValueError("multi_group_verified 必须为布尔值")
         for field in ("recent_message_limit", "raw_retention_days", "summary_batch_size"):
             value = getattr(self, field)
             if not isinstance(value, int) or isinstance(value, bool) or value < 1:

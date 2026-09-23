@@ -87,24 +87,6 @@ class ControlPageTests(TestCase):
         with patch("wechat_ai.uia_preview.read_group", side_effect=RuntimeError("group missing")):
             self.assertFalse(web_control._target_group_readable(("text",)))
 
-    def test_new_group_is_disabled_until_explicitly_enabled(self):
-        controller = web_control.Controller()
-        status = controller.add_group({"name": "新群"})
-        self.assertEqual(status["groups"], ["text", "新群"])
-        self.assertEqual(status["enabled_groups"], ["text"])
-        self.assertEqual(controller.set_group_enabled({"name": "新群", "enabled": True})["enabled_groups"], ["text", "新群"])
-        self.assertEqual(controller.set_group_enabled({"name": "text", "enabled": False})["enabled_groups"], ["新群"])
-        with self.assertRaisesRegex(ValueError, "同名群"):
-            controller.add_group({"name": "新群"})
-
-    def test_multiple_groups_cannot_enter_unverified_sender(self):
-        controller = web_control.Controller()
-        controller.add_group({"name": "新群"})
-        controller.set_group_enabled({"name": "新群", "enabled": True})
-        with self.assertRaisesRegex(ValueError, "多群轮询尚未"):
-            controller.start({"accept_focus": True})
-        self.assertFalse(web_control.Config.load(self.config_path).auto_send_enabled)
-
     def test_start_and_stop_update_flags_and_supervise_bot(self):
         controller = web_control.Controller()
         controller.save_model({

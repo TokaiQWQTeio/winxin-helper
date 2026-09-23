@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import ipaddress
 import json
 import os
 from pathlib import Path
@@ -65,11 +64,7 @@ def _save_config(config: Config) -> None:
         "api_key_env": config.api_key_env,
         "auto_send_enabled": config.auto_send_enabled,
         "focus_send_enabled": config.focus_send_enabled,
-        "groups": list(config.groups),
-        "enabled_groups": list(config.active_groups),
-        "multi_group_verified": config.multi_group_verified,
     })
-    raw.pop("dedicated_vm", None)
     tmp = CONFIG_PATH.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, CONFIG_PATH)
@@ -116,12 +111,8 @@ def _wechat_window_visible() -> bool:
 def _target_group_readable(groups: tuple[str, ...]) -> bool:
     """Check the selected chat title and message list, including chat-only layout."""
     try:
-        from .uia_preview import read_group, select_group
-        for group in groups:
-            if len(groups) > 1:
-                select_group(group)
-            read_group(group)
-        return True
+        from .uia_preview import read_group
+        return all(read_group(group).items is not None for group in groups)
     except Exception:
         return False
 
@@ -139,13 +130,10 @@ class Controller:
             return {
                 "running": process is not None,
                 "wechat_window_visible": visible,
-                "target_group_readable": bool(process and visible and len(config.active_groups) == 1
-                                              and _target_group_readable(config.active_groups)),
+                "target_group_readable": bool(process and visible and _target_group_readable(config.groups)),
                 "pid": process.pid if process else None,
                 "bot_name": config.bot_name,
                 "groups": list(config.groups),
-                "enabled_groups": list(config.active_groups),
-                "multi_group_verified": config.multi_group_verified,
                 "api_base_url": config.api_base_url,
                 "model": config.model,
                 "api_key_env": config.api_key_env,
@@ -179,40 +167,6 @@ class Controller:
             _save_config(replace(updated, auto_send_enabled=False, focus_send_enabled=False))
             return self.status()
 
-    def add_group(self, payload: dict) -> dict:
-        with self.lock:
-            if _process():
-                raise ValueError("请先停止助手，再添加群")
-            name = payload.get("name")
-            if not isinstance(name, str) or not name.strip() or len(name.strip()) > 100:
-                raise ValueError("群名必须为 1–100 个字符")
-            name = name.strip()
-            config = Config.load(CONFIG_PATH)
-            if any(existing.casefold() == name.casefold() for existing in config.groups):
-                raise ValueError("群已存在；同名群暂不支持自动区分")
-            updated = replace(config, groups=(*config.groups, name), enabled_groups=config.active_groups)
-            updated.validate()
-            _save_config(updated)
-            return self.status()
-
-    def set_group_enabled(self, payload: dict) -> dict:
-        with self.lock:
-            if _process():
-                raise ValueError("请先停止助手，再修改群开关")
-            name, enabled = payload.get("name"), payload.get("enabled")
-            config = Config.load(CONFIG_PATH)
-            if not isinstance(name, str) or name not in config.groups or not isinstance(enabled, bool):
-                raise ValueError("群名或开关状态无效")
-            active = set(config.active_groups)
-            if enabled:
-                active.add(name)
-            else:
-                active.discard(name)
-            updated = replace(config, enabled_groups=tuple(g for g in config.groups if g in active))
-            updated.validate()
-            _save_config(updated)
-            return self.status()
-
     def start(self, payload: dict) -> dict:
         with self.lock:
             if payload.get("accept_focus") is not True:
@@ -220,13 +174,9 @@ class Controller:
             if _process():
                 return self.status()
             config = Config.load(CONFIG_PATH)
-            if not config.active_groups:
-                raise ValueError("请先启用至少一个群")
-            if len(config.active_groups) > 1 and not config.multi_group_verified:
-                raise ValueError("多群轮询尚未通过本机只读验证，当前只能同时启用一个群")
-            _require_visible_wechat(config.active_groups)
-            if not _target_group_readable(config.active_groups):
-                raise ValueError("请在微信打开 " + "、".join(config.active_groups) + " 群，并保持群聊窗口可读取")
+            _require_visible_wechat(config.groups)
+            if not _target_group_readable(config.groups):
+                raise ValueError("请在微信打开 " + "、".join(config.groups) + " 群，并保持群聊窗口可读取")
             if not config.is_local_model and not os.environ.get(config.api_key_env):
                 raise ValueError(f"缺少环境变量 {config.api_key_env}；请在启动控制页前设置")
             if config.is_local_model:
@@ -273,7 +223,6 @@ class Controller:
 
 class Handler(BaseHTTPRequestHandler):
     controller: Controller
-    allowed_hosts = {"127.0.0.1", "localhost"}
 
     def _json(self, code: int, value: dict) -> None:
         body = json.dumps(value, ensure_ascii=False).encode("utf-8")
@@ -287,7 +236,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _valid_host(self) -> bool:
-        return self.headers.get("Host", "").split(":")[0] in self.allowed_hosts
+        return self.headers.get("Host", "").split(":")[0] in {"127.0.0.1", "localhost"}
 
     def do_GET(self) -> None:
         if not self._valid_host():
@@ -334,10 +283,6 @@ class Handler(BaseHTTPRequestHandler):
                 result = self.controller.stop()
             elif self.path == "/api/model":
                 result = self.controller.save_model(payload)
-            elif self.path == "/api/groups/add":
-                result = self.controller.add_group(payload)
-            elif self.path == "/api/groups/enable":
-                result = self.controller.set_group_enabled(payload)
             else:
                 self.send_error(404)
                 return
@@ -354,15 +299,10 @@ def main() -> None:
         raise SystemExit("控制页仅支持 Windows")
     Config.load(CONFIG_PATH)
     Handler.controller = Controller()
-    bind = os.environ.get("ASSISTANT_CONTROL_BIND", "127.0.0.1")
-    address = ipaddress.ip_address(bind)
-    if not (address.is_loopback or (address.version == 4 and address.is_private)):
-        raise SystemExit("控制页只能绑定回环或 WireGuard 私有 IPv4 地址")
-    Handler.allowed_hosts = {"127.0.0.1", "localhost", bind}
-    server = ThreadingHTTPServer((bind, 8765), Handler)
-    print(f"控制页：http://{bind}:8765", flush=True)
+    server = ThreadingHTTPServer(("127.0.0.1", 8765), Handler)
+    print("控制页：http://127.0.0.1:8765", flush=True)
     if "--no-browser" not in sys.argv:
-        webbrowser.open(f"http://{bind}:8765")
+        webbrowser.open("http://127.0.0.1:8765")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

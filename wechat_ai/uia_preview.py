@@ -125,54 +125,6 @@ def _ocr_engine():
     return RapidOCR()
 
 
-def select_group(group: str) -> Snapshot:
-    """Switch a visible session, then verify the title before reading messages.
-
-    No coordinate clicks or fuzzy name matching are used. Missing or duplicate
-    session cells fail closed, including virtualized sessions not exposed by UIA.
-    """
-    import uiautomation as uia
-
-    uia.SetGlobalSearchTimeout(1)
-    pids = _wechat_pids()
-    candidates = []
-    for window in uia.GetRootControl().GetChildren():
-        try:
-            if window.ProcessId not in pids:
-                continue
-        except Exception:
-            continue
-        candidates.extend(
-            node for node in _walk(window)
-            if _class(node) == "mmui::ChatSessionCell"
-            and _name(node).splitlines()[:1] == [group]
-        )
-    if len(candidates) != 1:
-        raise RuntimeError(f"无法唯一定位群会话：{group}")
-    cell = candidates[0]
-    try:
-        try:
-            pattern = cell.GetSelectionItemPattern()
-        except Exception:
-            pattern = None
-        if pattern is None:
-            pattern = cell.GetInvokePattern()
-        if pattern is None:
-            raise RuntimeError("群会话不支持辅助功能切换")
-        if hasattr(pattern, "Select"):
-            pattern.Select()
-        else:
-            pattern.Invoke()
-    except Exception as exc:
-        raise RuntimeError(f"群会话切换失败：{group}") from exc
-    for _ in range(10):
-        try:
-            return read_group(group)
-        except RuntimeError:
-            time.sleep(0.2)
-    raise RuntimeError(f"切换后未核实群标题：{group}")
-
-
 def read_group(group: str) -> Snapshot:
     """Read the selected group's currently exposed UIA message list."""
     import uiautomation as uia
