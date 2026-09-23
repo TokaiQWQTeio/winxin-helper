@@ -67,8 +67,9 @@ def _save_config(config: Config) -> None:
         "focus_send_enabled": config.focus_send_enabled,
         "groups": list(config.groups),
         "enabled_groups": list(config.active_groups),
-        "dedicated_vm": config.dedicated_vm,
+        "multi_group_verified": config.multi_group_verified,
     })
+    raw.pop("dedicated_vm", None)
     tmp = CONFIG_PATH.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, CONFIG_PATH)
@@ -144,7 +145,7 @@ class Controller:
                 "bot_name": config.bot_name,
                 "groups": list(config.groups),
                 "enabled_groups": list(config.active_groups),
-                "dedicated_vm": config.dedicated_vm,
+                "multi_group_verified": config.multi_group_verified,
                 "api_base_url": config.api_base_url,
                 "model": config.model,
                 "api_key_env": config.api_key_env,
@@ -221,8 +222,8 @@ class Controller:
             config = Config.load(CONFIG_PATH)
             if not config.active_groups:
                 raise ValueError("请先启用至少一个群")
-            if len(config.active_groups) > 1 and not config.dedicated_vm:
-                raise ValueError("多群轮询尚未在独立虚拟机验证，当前版本只能同时启用一个群")
+            if len(config.active_groups) > 1 and not config.multi_group_verified:
+                raise ValueError("多群轮询尚未通过本机只读验证，当前只能同时启用一个群")
             _require_visible_wechat(config.active_groups)
             if not _target_group_readable(config.active_groups):
                 raise ValueError("请在微信打开 " + "、".join(config.active_groups) + " 群，并保持群聊窗口可读取")

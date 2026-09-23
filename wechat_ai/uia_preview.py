@@ -126,7 +126,7 @@ def _ocr_engine():
 
 
 def select_group(group: str) -> Snapshot:
-    """Switch a visible session in the dedicated VM, then verify the title.
+    """Switch a visible session, then verify the title before reading messages.
 
     No coordinate clicks or fuzzy name matching are used. Missing or duplicate
     session cells fail closed, including virtualized sessions not exposed by UIA.

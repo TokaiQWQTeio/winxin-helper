@@ -29,8 +29,8 @@ def run(config: Config, interval: float = 2.0, one_shot: bool = False) -> None:
         raise RuntimeError("单次发送测试只能配置一个群")
     if not config.active_groups:
         raise RuntimeError("没有已启用的群")
-    if len(config.active_groups) > 1 and not config.dedicated_vm:
-        raise RuntimeError("多群轮询尚未在独立虚拟机验证；禁止直接进入发送模式")
+    if len(config.active_groups) > 1 and not config.multi_group_verified:
+        raise RuntimeError("多群轮询尚未通过本机只读验证；禁止直接进入发送模式")
     if config.api_base_url == "https://api.example.com/v1" or config.model == "your-model-name":
         raise RuntimeError("模型地址和名称仍是示例值")
     if not config.is_local_model and not os.environ.get(config.api_key_env):

@@ -31,7 +31,7 @@
         <div class="card-head"><div><p class="eyebrow">01 / 运行状态</p><h2 id="status-title">助手控制</h2></div><span id="status-pill" class="pill">读取中</span></div>
         <div class="state-block"><span class="state-dot" id="state-dot"></span><div><strong id="state-text">正在读取状态</strong><p id="state-sub">请稍候</p></div></div>
         <div class="meta"><div><span>微信账号</span><strong id="account">—</strong></div><div><span>回复群聊</span><strong id="groups">—</strong></div></div>
-        <div class="caution"><span class="caution-icon">!</span><p>微信可放在其他程序后面，但需保持登录并打开 text 群。单独显示群聊时，程序会结合微信的 @ 分隔符与窗口截图确认消息和发送者。缩到托盘后无法读取消息。发送不移动鼠标，但微信可能短暂抢到焦点。</p></div>
+        <div class="caution"><span class="caution-icon">!</span><p>微信可放在其他程序后面，但需保持登录且窗口不最小化。单独显示群聊时，程序会结合微信的 @ 分隔符与窗口截图确认消息和发送者。缩到托盘后无法读取消息。发送不移动鼠标，但微信可能短暂抢到焦点。</p></div>
         <label class="check"><input id="accept-focus" type="checkbox"><span>我了解启动后，收到真正 @ 时可能自动发送并短暂切换焦点</span></label>
         <div class="actions"><button id="start-btn" class="primary" type="button">启动助手 <span>↗</span></button><button id="stop-btn" class="secondary" type="button">停止助手</button></div>
       </section>
@@ -53,7 +53,7 @@
     </div>
     <section class="card group-card" aria-labelledby="group-title">
       <div class="card-head"><div><p class="eyebrow">03 / 群聊范围</p><h2 id="group-title">逐群启用</h2></div></div>
-      <p class="group-help">新群默认关闭。修改群开关前请先停止助手；多个群的同时采集需在独立微信环境完成验证。</p>
+        <p class="group-help">新群默认关闭。修改群开关前请先停止助手；多群切换须先在本机完成只读验证，可能短暂影响微信窗口焦点。</p>
       <div id="group-list" class="group-list" aria-live="polite"></div>
       <form id="add-group-form" class="group-add"><label for="group-name">添加群名</label><input id="group-name" maxlength="100" placeholder="微信中的群聊名称" required><button type="submit" class="save-btn">添加（默认关闭）</button></form>
     </section>

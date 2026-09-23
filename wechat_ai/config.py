@@ -20,7 +20,7 @@ class Config:
     raw_retention_days: int = 30
     summary_batch_size: int = 20
     enabled_groups: tuple[str, ...] | None = None
-    dedicated_vm: bool = False
+    multi_group_verified: bool = False
 
     @property
     def active_groups(self) -> tuple[str, ...]:
@@ -51,7 +51,7 @@ class Config:
             summary_batch_size=raw.get("summary_batch_size", 20),
             enabled_groups=(tuple(str(group).strip() for group in raw["enabled_groups"])
                             if "enabled_groups" in raw else None),
-            dedicated_vm=raw.get("dedicated_vm", False),
+            multi_group_verified=raw.get("multi_group_verified", False),
         )
         config.validate()
         return config
@@ -77,8 +77,8 @@ class Config:
             raise ValueError("auto_send_enabled 必须为布尔值")
         if not isinstance(self.focus_send_enabled, bool):
             raise ValueError("focus_send_enabled 必须为布尔值")
-        if not isinstance(self.dedicated_vm, bool):
-            raise ValueError("dedicated_vm 必须为布尔值")
+        if not isinstance(self.multi_group_verified, bool):
+            raise ValueError("multi_group_verified 必须为布尔值")
         for field in ("recent_message_limit", "raw_retention_days", "summary_batch_size"):
             value = getattr(self, field)
             if not isinstance(value, int) or isinstance(value, bool) or value < 1:

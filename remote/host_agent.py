@@ -1,4 +1,4 @@
-"""Run inside the isolated Windows VM; relay only status and control metadata."""
+"""Run on the Windows host; relay only status and control metadata."""
 from __future__ import annotations
 
 import ipaddress
@@ -47,7 +47,7 @@ class RelayClient:
 
 def run() -> None:
     client = RelayClient(relay_url(), os.environ.get("ASSISTANT_AGENT_TOKEN", ""),
-                         os.environ.get("ASSISTANT_AGENT_ID", "vm1"))
+                         os.environ.get("ASSISTANT_AGENT_ID", "home-pc"))
     controller = Controller()
     while True:
         try:
