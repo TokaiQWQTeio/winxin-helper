@@ -9,6 +9,7 @@ from .llm import ChatModel, ModelError
 from .uia_preview import (
     has_mention_marker,
     has_verified_mention,
+    identify_sender,
     new_items,
     read_group,
     sender_from_session_preview,
@@ -37,7 +38,14 @@ def watch_model(config: Config, interval: float = 2.0) -> None:
             if item.kind != "mmui::ChatTextItemView" or not has_mention_marker(item.text, config.bot_name):
                 continue
             sender = sender_from_session_preview(current, item, config.bot_name)
-            if sender is None or not has_verified_mention(current, item, config.bot_name, sender):
+            visual_sender_confirmed = False
+            if sender is None:
+                sender = identify_sender(current, item)
+                visual_sender_confirmed = sender is not None
+            if sender is None or not has_verified_mention(
+                current, item, config.bot_name, sender,
+                visual_sender_confirmed=visual_sender_confirmed,
+            ):
                 print("检测到候选 @，但发送者或 @ 信号未确认；已跳过。", flush=True)
                 continue
             if sender == config.bot_name:

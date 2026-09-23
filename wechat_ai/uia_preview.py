@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
+from functools import lru_cache
 from pathlib import Path
 import subprocess
 import sys
@@ -51,10 +52,15 @@ def _normalized(value: str) -> str:
     return "".join(unicodedata.normalize("NFKC", value).split())
 
 
-def has_verified_mention(snapshot: Snapshot, item: Item, nickname: str, sender: str) -> bool:
-    """Require both WeChat's mention marker and its separate unread @ badge."""
+def has_verified_mention(
+    snapshot: Snapshot, item: Item, nickname: str, sender: str,
+    *, visual_sender_confirmed: bool = False,
+) -> bool:
+    """Verify a selected @ using the badge, or OCR in chat-only layout."""
     if not has_mention_marker(item.text, nickname):
         return False
+    if not snapshot.session_preview:
+        return visual_sender_confirmed and bool(sender.strip())
     lines = snapshot.session_preview.splitlines()
     if "[有人@我]" not in lines:
         return False
@@ -111,6 +117,12 @@ def _rect(control) -> tuple[int, int, int, int] | None:
         return None
 
 
+@lru_cache(maxsize=1)
+def _ocr_engine():
+    from rapidocr import RapidOCR
+    return RapidOCR()
+
+
 def read_group(group: str) -> Snapshot:
     """Read the selected group's currently exposed UIA message list."""
     import uiautomation as uia
@@ -158,7 +170,6 @@ def identify_sender(snapshot: Snapshot, item: Item) -> str | None:
         return None
     from PIL import Image
     import numpy as np
-    from rapidocr import RapidOCR
 
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as output:
         path = Path(output.name)
@@ -180,10 +191,15 @@ def identify_sender(snapshot: Snapshot, item: Item) -> str | None:
             if message_box[2] > image.width or message_box[3] > image.height:
                 return None
             message_crop = image.crop(message_box)
-        engine = RapidOCR()
+        engine = _ocr_engine()
         message_scan = engine(np.asarray(message_crop))
         observed = "".join(message_scan.txts or [])
         expected = _normalized(item.text)
+        if not observed:
+            # Short bubbles are missed when surrounded by a large blank area.
+            narrow = message_crop.crop((0, 0, min(240, message_crop.width), message_crop.height))
+            narrow = narrow.resize((narrow.width * 2, narrow.height * 2))
+            observed = "".join(engine(np.asarray(narrow)).txts or [])
         if not observed or SequenceMatcher(None, expected, _normalized(observed)).ratio() < 0.7:
             return None
         scan = engine(np.asarray(sender_crop))
@@ -191,6 +207,14 @@ def identify_sender(snapshot: Snapshot, item: Item) -> str | None:
             text.strip() for text, score in zip(scan.txts or [], scan.scores or [])
             if score >= 0.85 and text.strip() and "@" not in text and len(text.strip()) <= 50
         ]
+        if not candidates:
+            narrow = sender_crop.crop((0, 0, min(200, sender_crop.width), sender_crop.height))
+            narrow = narrow.resize((narrow.width * 2, narrow.height * 2))
+            scan = engine(np.asarray(narrow))
+            candidates = [
+                text.strip() for text, score in zip(scan.txts or [], scan.scores or [])
+                if score >= 0.85 and text.strip() and "@" not in text and len(text.strip()) <= 50
+            ]
         return candidates[0] if len(candidates) == 1 else None
     except (OSError, subprocess.TimeoutExpired, ValueError):
         return None
@@ -213,7 +237,7 @@ def watch(group: str, nickname: str, interval: float = 2.0) -> None:
             is_candidate = has_mention_marker(item.text, nickname)
             status = "候选 @" if is_candidate else "普通消息"
             sender = identify_sender(current, item) if is_candidate else None
-            if sender and has_verified_mention(current, item, nickname, sender):
-                status = "双信号确认 @"
+            if sender and has_verified_mention(current, item, nickname, sender, visual_sender_confirmed=True):
+                status = "已确认 @"
             print(f"{status}（发送者：{sender or '未确认'}）: {item.text}", flush=True)
         previous = current

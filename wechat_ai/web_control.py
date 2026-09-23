@@ -109,10 +109,10 @@ def _wechat_window_visible() -> bool:
 
 
 def _target_group_readable(groups: tuple[str, ...]) -> bool:
-    """Require the group messages and session preview used to verify real @."""
+    """Check the selected chat title and message list, including chat-only layout."""
     try:
         from .uia_preview import read_group
-        return all(bool(read_group(group).session_preview) for group in groups)
+        return all(read_group(group).items is not None for group in groups)
     except Exception:
         return False
 
@@ -176,7 +176,7 @@ class Controller:
             config = Config.load(CONFIG_PATH)
             _require_visible_wechat(config.groups)
             if not _target_group_readable(config.groups):
-                raise ValueError("请在微信主窗口打开 " + "、".join(config.groups) + " 群，并保持左侧会话列表可见；当前无法核实真正的 @")
+                raise ValueError("请在微信打开 " + "、".join(config.groups) + " 群，并保持群聊窗口可读取")
             if not config.is_local_model and not os.environ.get(config.api_key_env):
                 raise ValueError(f"缺少环境变量 {config.api_key_env}；请在启动控制页前设置")
             if config.is_local_model:

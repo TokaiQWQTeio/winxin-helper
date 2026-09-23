@@ -78,8 +78,10 @@ def run(config: Config, interval: float = 2.0, one_shot: bool = False) -> None:
                         sender_from_session_preview(current, item, config.bot_name)
                         if is_candidate else None
                     )
+                    visual_sender_confirmed = False
                     if sender is None:
                         sender = identify_sender(current, item)
+                        visual_sender_confirmed = sender is not None
                     if sender is None:
                         LOG.warning("发送者无法确认，跳过：%s", group)
                         continue
@@ -90,7 +92,10 @@ def run(config: Config, interval: float = 2.0, one_shot: bool = False) -> None:
                         text=item.text,
                         source_id=f"{session_id}-{sequence}",
                         received_at=datetime.now(timezone.utc),
-                        mention_verified=has_verified_mention(current, item, config.bot_name, sender),
+                        mention_verified=has_verified_mention(
+                            current, item, config.bot_name, sender,
+                            visual_sender_confirmed=visual_sender_confirmed,
+                        ),
                     )
                     result = assistant.ingest(event)
                     LOG.info("消息处理结果：%s %s", group, result)

@@ -39,3 +39,24 @@ class LiveOneShotTests(TestCase):
         identify.assert_called_once_with(after, mention)
         sender.send.assert_called_once_with("text", "张三", "你好！")
         self.assertFalse(config.auto_send_enabled)
+
+    def test_chat_only_mention_uses_visual_sender(self):
+        old = Item("mmui::ChatTextItemView", "旧消息")
+        mention = Item("mmui::ChatTextItemView", "@hi～\u2005你好")
+        before = Snapshot(1, (0, 0), (old,), "")
+        after = Snapshot(1, (0, 0), (old, mention), "")
+        with TemporaryDirectory() as directory:
+            config = Config("hi～", ("text",), "http://127.0.0.1:11434/v1", "deepseek-r1:8b",
+                            database_path=str(Path(directory) / "assistant.db"), auto_send_enabled=False,
+                            focus_send_enabled=True)
+            model = MagicMock()
+            model.complete.return_value = "你好！"
+            sender = MagicMock()
+            sender.send.return_value = True
+            with patch("wechat_ai.uia_live.read_group", side_effect=[before, after]), \
+                 patch("wechat_ai.uia_live.time.sleep"), \
+                 patch("wechat_ai.uia_live.identify_sender", return_value="李四"), \
+                 patch("wechat_ai.uia_live.ChatModel", return_value=model), \
+                 patch("wechat_ai.uia_live.UIASender", return_value=sender):
+                run(config, one_shot=True)
+        sender.send.assert_called_once_with("text", "李四", "你好！")

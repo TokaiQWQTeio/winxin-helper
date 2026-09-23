@@ -28,6 +28,18 @@ class PreviewTests(unittest.TestCase):
         stale = Snapshot(1, (0, 0), (item,), "text\n[有人@我]\n张三: 别的消息\n")
         self.assertFalse(has_verified_mention(stale, item, "hi～", "张三"))
 
+    def test_chat_only_mention_requires_visual_sender_confirmation(self):
+        item = Item("mmui::ChatTextItemView", "@hi～\u2005你好")
+        snapshot = Snapshot(1, (0, 0), (item,), "")
+        self.assertFalse(has_verified_mention(snapshot, item, "hi～", "张三"))
+        self.assertTrue(has_verified_mention(
+            snapshot, item, "hi～", "张三", visual_sender_confirmed=True,
+        ))
+        typed = Item("mmui::ChatTextItemView", "@hi～ 你好")
+        self.assertFalse(has_verified_mention(
+            snapshot, typed, "hi～", "张三", visual_sender_confirmed=True,
+        ))
+
     def test_latest_preview_extracts_different_group_senders(self):
         item = Item("mmui::ChatTextItemView", "@hi～\u2005你好")
         for sender in ("张三", "李四", "TokaiTeio"):

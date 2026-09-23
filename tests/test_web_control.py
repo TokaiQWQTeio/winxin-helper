@@ -79,11 +79,13 @@ class ControlPageTests(TestCase):
                 controller.start({"accept_focus": True})
         self.assertFalse(web_control.Config.load(self.config_path).auto_send_enabled)
 
-    def test_group_without_session_preview_cannot_verify_mentions(self):
+    def test_group_only_window_is_readable_without_session_preview(self):
         with patch("wechat_ai.uia_preview.read_group", return_value=Snapshot(1, (0, 0), (), "")):
-            self.assertFalse(web_control._target_group_readable(("text",)))
+            self.assertTrue(web_control._target_group_readable(("text",)))
         with patch("wechat_ai.uia_preview.read_group", return_value=Snapshot(1, (0, 0), (), "text\n张三: 消息")):
             self.assertTrue(web_control._target_group_readable(("text",)))
+        with patch("wechat_ai.uia_preview.read_group", side_effect=RuntimeError("group missing")):
+            self.assertFalse(web_control._target_group_readable(("text",)))
 
     def test_start_and_stop_update_flags_and_supervise_bot(self):
         controller = web_control.Controller()
